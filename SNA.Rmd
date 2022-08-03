@@ -1,0 +1,145 @@
+---
+title: "SNA"
+author: "Michelle Chung"
+date: "1/21/2022"
+output:
+  word_document:
+    reference_docx: SNA.docx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(broom)
+library(pander)
+library(dplyr)
+library(knitr)
+library(tidyr)
+library(reshape)
+options(kableExtra.auto_format = FALSE)
+
+library(kableExtra, warn.conflicts = TRUE)
+options(qwraps2_markup = "markdown") # this is new
+# set working directory
+setwd("C:/Users/mchun/OneDrive/Desktop/CGH")
+mycols <- rainbow(24, alpha = 0.3) # create color vector for future use
+dcols <- rainbow(24, alpha = 0.75)
+## mycols = lighter colors for polygon interiors
+## dcols = darker colors for lines, points, outlines
+# par(mfrow = c(1, 2))
+colwheel <- pie(rep(1, 24), labels = 1:24, col = mycols, main = "mycols Color Vector")
+dcolwheel <- pie(rep(1, 24), labels = 1:24, col = dcols, main = "dcols Color Vector")
+
+```
+
+```{r, echo = F}
+SNA = read.csv("Filtered_SNA.csv")
+SNA = as.data.frame(SNA)
+SNA$If.you.are.a.student..what.degree.are.you.currently.pursuing. = as.factor(SNA$If.you.are.a.student..what.degree.are.you.currently.pursuing.)
+```
+
+```{r, echo = F}
+# student degree question
+student_degree = barplot(sort(table(SNA$If.you.are.a.student..what.degree.are.you.currently.pursuing.), decreasing=T), main = "If you are a student, what degree \n are you currently pursuing", col = c(mycols[c(1:14)]), ylim = c(0,500),cex.main = 0.75, axes = F, axisnames = F)
+text(x = student_degree, y = par("usr")[3] -10, labels = c("Master's", "Currently not a student", "Doctoral", "Blank", "Other", "Bachelor's"), srt = 45, adj = c(1.05, 1.1), xpd = TRUE, cex = .7)
+axis(2, cex.axis =0.6)
+
+
+```
+
+```{r, results= "asis"}
+kable(table(SNA$If.you.are.a.student..what.degree.are.you.currently.pursuing.),col.names = c("Degree", "Counts"))
+
+```
+
+```{r, echo = F}
+# student status
+JHU_student = barplot(sort(table(SNA$Are.you.a.student.at.Johns.Hopkins.University.), decreasing=T), main = "Are you a student at Johns Hopkins University?", ylim = c(0,1200), cex.axis = 0.6, col = c(mycols[c(1:14)]),cex.main = 0.75, axisnames = F)
+text(x = JHU_student, y = par("usr")[3], labels = c("Blank", "No", "Yes"), srt = 45, adj = c(1.05, 1.5), xpd = TRUE, cex = .7)
+```
+
+```{r}
+kable(table(SNA$Are.you.a.student.at.Johns.Hopkins.University.),col.names = c("JHU Student Status", "Counts"))
+```
+
+```{r, echo = F}
+#alumni status
+JHU_alumni = barplot(sort(table(SNA$Are.you.an.alumni.of.Johns.Hopkins.University.), decreasing=T), main = "Are you an alumni of Johns Hopkins University?", col = c(mycols[c(1:14)]),cex.main = 0.75, ylim = c(0,1200), axisnames = F, cex.axis = 0.6)
+text(x = JHU_student, y = par("usr")[3], labels = c("Blank", "No", "Yes"), srt = 45, adj = c(1.05, 2), xpd = TRUE, cex = .7)
+```
+
+```{r}
+kable(table(SNA$Are.you.an.alumni.of.Johns.Hopkins.University.),col.names = c("JHU Alumni Status", "Counts"))
+```
+
+```{r, echo = F}
+# JHU school type
+JHU_school = barplot(sort(table(SNA$If.you.are.a.current.student.or.an.alumni.of.Johns.Hopkins.University..what.school.are.you.in.), decreasing=T), main = "If you are a current student or an alumni of Johns Hopkins University, \n what school are you in?", col = c(mycols[c(1:14)]),cex.main = 0.75, ylim = c(0,800), axisnames = F, cex.axis = 0.6)
+text(x = JHU_school, y = par("usr")[3], labels = c("Enrolled/Alumni of one \n or more JHU schools", "Not currently enrolled \n or an alumni of JHU", " \n Blank", "Not currently enrolled in \n a school at JHU"), srt = 45, adj = c(1.0, 1.5), xpd = TRUE, cex = .6)
+
+```
+```{r}
+kable(table(SNA$If.you.are.a.current.student.or.an.alumni.of.Johns.Hopkins.University..what.school.are.you.in.),col.names = c("Curent Student or Alumni of JHU", "Counts"))
+```
+```{r, echo = F}
+# interested in GH
+GH_interest = barplot(sort(table(SNA$Are.you.interested.in.pursuing.or.currently.working.in.a.career.in.global.health.), decreasing=T), main = "Are you interested in pursuing or \n currently working in a career in global health?", col = c(mycols[c(1:14)]),cex.main = 0.75, ylim = c(0,1200), axisnames = F, cex.axis = 0.6)
+text(x = GH_interest, y = par("usr")[3] , labels = c("Yes", "Blank", "Unsure", "No"), srt = 45, adj = c(1.0,1.5), xpd = TRUE, cex = .7)
+```
+
+```{r}
+kable(table(SNA$Are.you.interested.in.pursuing.or.currently.working.in.a.career.in.global.health.),col.names = c("Interested in Global Health", "Counts"))
+```
+
+```{r, echo = F}
+# non academic career
+GH_nonacinterest = barplot(sort(table(SNA$Are.you.interested.in.pursuing.or.currently.working.in.a.career.a.non.academic.career), decreasing=T), main = "Are you interested in pursuing or \n currently working in a career (a non-academic career)?", col = c(mycols[c(1:14)]),cex.main = 0.75, ylim = c(0,1200), axisnames = F, cex.axis = 0.6)
+text(x = GH_nonacinterest, y = par("usr")[3] , labels = c("Yes", "Blank", "Unsure", "No"), srt = 45, adj = c(1.0,1.5), xpd = TRUE, cex = .7)
+```
+
+```{r}
+kable(table(SNA$Are.you.interested.in.pursuing.or.currently.working.in.a.career.a.non.academic.career),col.names = c("Interested in Global Health (non-academic)", "Counts"))
+```
+```{r, echo = F}
+# years of GH experience
+par(mar = c(7, 3, 4, 1))
+years_GHexperience = barplot(sort(table(SNA$If.you.are.currently.working.in.global.health..how.many.years.of.global.health.experience.do.you.have...Please.type.a.whole.number.ex..1..2.â...30.), decreasing = T), main = "If you are currently working in global health, \n how many years of global health experience do you have?", col = c(mycols[c(1:14)]),cex.main = 0.75, ylim = c(0,700), axisnames = F, cex.axis = 0.6)
+text(x = years_GHexperience, y = par("usr")[3], labels = c("0-5", "N/A", "0", "5-10", "10-20", "20-30", "Other/Interested", "30-40", "Not currently working \n in global health", "40+", "Not currently working but have \n global health experience"), srt = 45, adj = c(1.0,1), xpd = TRUE, cex = .6)
+```
+```{r}
+kable(table(SNA$If.you.are.currently.working.in.global.health..how.many.years.of.global.health.experience.do.you.have...Please.type.a.whole.number.ex..1..2.â...30.),col.names = c("Years of Global Health experience", "Counts"))
+```
+```{r, echo = F}
+# Country  may bring into ArcGIS for clearer visual (if map is needed)
+library(ggplot2)
+library(dplyr)
+counttab = table(SNA$Country.Region.Name)
+counttab = as.data.frame(counttab)
+counttab$Var1 = as.character(counttab$Var1)
+counttab$Var1[counttab$Var1 == "United States of America"] <- "USA"
+counttab$Var1 = as.factor(counttab$Var1)
+kable(counttab,col.names = c("Country Region Name", "Counts"))
+
+write.csv(counttab, "/Users/mchun/OneDrive/Desktop/CGH/countrytab.csv")
+
+WorldData <- map_data('world') %>% filter(region != "Antarctica") %>% fortify
+df <- data.frame(region = counttab$Var1, value = counttab$Freq,
+                 stringsAsFactors=FALSE)
+
+p <- ggplot() +
+    geom_map(data = WorldData, map = WorldData,
+                  aes(x = long, y = lat, group = group, map_id=region),
+                  fill = "white", colour = "#7f7f7f", size=0.5) + 
+    geom_map(data = df, map=WorldData,
+                  aes(fill=value, map_id=region),
+                  colour="#7f7f7f", size=0.5) +
+    coord_map("rectangular", lat0=0, xlim=c(-180,180), ylim=c(-60, 90)) +
+    scale_fill_continuous(low="thistle2", high="darkred", guide="colorbar") +
+    scale_y_continuous(breaks=c()) +
+    scale_x_continuous(breaks=c()) +
+    labs(fill="legend", title="Country Region", x="", y="") +
+    theme_bw()
+p 
+
+```

@@ -1,0 +1,1497 @@
+---
+title: "CUGH satellite"
+author: "Michelle Chung"
+date: "7/26/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+helpful links:
+http://www2.hawaii.edu/~georgeha/Handouts/R_Handout_Getting_Started_with_R.html#point-and-click-in-rstudio
+(correlation matrix): https://towardsdatascience.com/5-ways-to-effectively-visualize-survey-data-using-r-89928bf08cb2
+https://rkabacoff.github.io/datavis/Other.html
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(knitr)
+library(broom)
+library(pander)
+library(dplyr)
+library(tidyr)
+library(reshape)
+
+# set working directory
+setwd("C:/Users/mchun/OneDrive/Desktop/CGH")
+mycols <- rainbow(24, alpha = 0.3) # create color vector for future use
+dcols <- rainbow(24, alpha = 0.75)
+## mycols = lighter colors for polygon interiors
+## dcols = darker colors for lines, points, outlines
+# par(mfrow = c(1, 2))
+colwheel <- pie(rep(1, 24), labels = 1:24, col = mycols, main = "mycols Color Vector")
+dcolwheel <- pie(rep(1, 24), labels = 1:24, col = dcols, main = "dcols Color Vector")
+
+```
+
+```{r, echo = F, include= F}
+library(readr)
+cugh <- read_csv("CUGH_Satellite_Women Leaders in Global Health_ Exploring Careers^J Strengthening Networks (Responses).csv")
+
+#remove last part of file with NAs
+#cugh=cugh[,(1:35)]
+cugh = as.data.frame(cugh)
+
+# Likert scale data
+# must separate by characteristic (ie student status)
+cugh_init <- cugh[,(1:20)]
+cugh_init2 = cugh_init
+colnames(cugh_init) <- c("id", "attend", "followup", "origin", "organization", "studentstatus","program", "occupation", "strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization" ,"intouch", "collab", "plans", "virtconnect", "whysignup","slack")
+
+cugh_followup <- read.csv("CUGH_followuponly.csv")
+colnames(cugh_followup) = c("id", "fu_complete", "fu_strengthennetwork", "fu_newconnect", "fu_meaningful", "fu_intouch", "fu_collab", "fu_virtconnect", "furtherconnect", "followupconnect")
+library(kableExtra)
+library(flextable)
+library(dplyr)
+library(tidyr)
+for (i in colnames(cugh_init)){
+    ft <- separate_rows(cugh_init[i], sep=",\\s*") %>% 
+                     group_by(cugh_init[i]) %>% tally () %>%
+  mutate(freq = round(n / 31, 5))
+    ft=flextable(ft)
+#      prop.table(ft)
+    flextable_to_rmd(ft) #solution to why the tables weren't printing properly, with results='asis'!
+    cat("\n")
+}
+  
+```
+
+```{r, echo = F, include = F}
+cugh %>%
+  select(`Please respond to the following sentences about the connections you made at the event [The event strengthened my network]`:`Please respond to the following sentences about the connections you made at the event [I already have plans to collaborate with someone I met at this event]`) %>% #select only the check-all questions
+  head(n = 8)
+rsurvey_use_long <- cugh %>%
+  rownames_to_column("id") %>%
+  select(id, `Please respond to the following sentences about the connections you made at the event [The event strengthened my network]`:`Please respond to the following sentences about the connections you made at the event [I already have plans to collaborate with someone I met at this event]`) %>%
+  pivot_longer(`Please respond to the following sentences about the connections you made at the event [The event strengthened my network]`:`Please respond to the following sentences about the connections you made at the event [I already have plans to collaborate with someone I met at this event]`, names_to = "question", values_to="Rating")
+
+
+#write.csv(rsurvey_use_long,"/Users/mchun/OneDrive/Desktop/CGH/cugh_longdata.csv", row.names = FALSE)
+
+kable(table(cugh_init$`What is your current occupation?`))
+kable(table(cugh$`Which country are you from?`))
+kable(table(cugh$`What is your current institution or organization?`))
+kable(table(cugh$`If you are a student, what degree program are you in?`))
+kable(table(cugh$`Are you currently a student (i.e. actively enrolled in an academic program)?`))
+
+```
+
+Organizing data
+```{r, echo = F}
+# recoding numeric values on appropriate scale
+Likerts_init <- c("strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization" ,"intouch", "collab", "plans")
+
+# 1= Strongly Disagree, 2 = Disagree , 3 = Neutral, 4 = Agree, 5 = Strongly Agree
+cugh_init$strengthennetwork[cugh_init$strengthennetwork == "Agree"] <- 4
+cugh_init$strengthennetwork[cugh_init$strengthennetwork == "Neutral"] <- 3
+cugh_init$strengthennetwork[cugh_init$strengthennetwork == "Strongly Agree"] <- 5
+cugh_init$newconnect[cugh_init$newconnect == "Agree"] <- 4
+cugh_init$newconnect[cugh_init$newconnect == "Disagree"] <- 2
+cugh_init$newconnect[cugh_init$newconnect == "Strongly Agree"] <- 5
+cugh_init$meaningful[cugh_init$meaningful == "Agree"] <- 4
+cugh_init$meaningful[cugh_init$meaningful == "Neutral"] <- 3
+cugh_init$meaningful[cugh_init$meaningful == "Strongly Agree"] <- 5
+cugh_init$newcountry[cugh_init$newcountry == "Agree"] <- 4
+cugh_init$newcountry[cugh_init$newcountry == "Strongly Agree"] <- 5
+cugh_init$neworganization[cugh_init$neworganization == "Agree"] <- 4
+cugh_init$neworganization[cugh_init$neworganization == "Strongly Agree"] <- 5
+cugh_init$newfromorganization[cugh_init$newfromorganization == "Agree"] <- 4
+cugh_init$newfromorganization[cugh_init$newfromorganization == "Disagree"] <- 2
+cugh_init$newfromorganization[cugh_init$newfromorganization == "Neutral"] <- 3
+cugh_init$newfromorganization[cugh_init$newfromorganization == "Strongly Agree"] <- 5
+cugh_init$newfromorganization[cugh_init$newfromorganization == "Strongly Disagree"] <- 1
+cugh_init$intouch[cugh_init$intouch == "Agree"] <- 4
+cugh_init$intouch[cugh_init$intouch == "Neutral"] <- 3
+cugh_init$intouch[cugh_init$intouch == "Strongly Agree"] <- 5
+cugh_init$collab[cugh_init$collab == "Agree"] <- 4
+cugh_init$collab[cugh_init$collab == "Neutral"] <- 3
+cugh_init$collab[cugh_init$collab == "Strongly Agree"] <- 5
+cugh_init$plans[cugh_init$plans == "Agree"] <- 4
+cugh_init$plans[cugh_init$plans == "Disagree"] <- 2
+cugh_init$plans[cugh_init$plans == "Neutral"] <- 3
+cugh_init$plans[cugh_init$plans == "Strongly Agree"] <- 5
+cugh_init$plans[cugh_init$plans == "Strongly Disagree"] <- 1
+cugh_b = cugh_init[,(9:17)]
+cugh_b <- as.data.frame(sapply(cugh_b, as.numeric)) #<- sapply is here
+cugh_a = as.data.frame(cugh[,-(9:17)])
+cugh_a = as.data.frame(cugh_a[,-(12:20)])
+cugh_a[] <- data.matrix(cugh_a)
+colnames(cugh_a) = c("id", "attend", "followup", "origin", "organization", "studentstatus","program", "occupation", "virtconnect", "whysignup", "slack")
+cugh_init_l = cugh_init
+cugh_init = cbind(cugh_a, cugh_b)
+
+# followup
+Likerts_fu <- c("fu_strengthennetwork", "fu_newconnect", "fu_meaningful", "fu_intouch", "fu_collab")
+cugh_followup$fu_strengthennetwork[cugh_followup$fu_strengthennetwork == "Agree"] <- 4
+cugh_followup$fu_strengthennetwork[cugh_followup$fu_strengthennetwork == "Disagree"] <- 2
+cugh_followup$fu_strengthennetwork[cugh_followup$fu_strengthennetwork == "Neutral"] <- 3
+cugh_followup$fu_strengthennetwork[cugh_followup$fu_strengthennetwork == "Strongly Agree"] <- 5
+cugh_followup$fu_strengthennetwork[cugh_followup$fu_strengthennetwork == "Strongly Disagree"] <- 1
+
+cugh_followup$fu_newconnect[cugh_followup$fu_newconnect == "Agree"] <- 4
+cugh_followup$fu_newconnect[cugh_followup$fu_newconnect == "Disagree"] <- 2
+cugh_followup$fu_newconnect[cugh_followup$fu_newconnect == "Neutral"] <- 3
+cugh_followup$fu_newconnect[cugh_followup$fu_newconnect == "Strongly Agree"] <- 5
+
+cugh_followup$fu_meaningful[cugh_followup$fu_meaningful == "Agree"] <- 4
+cugh_followup$fu_meaningful[cugh_followup$fu_meaningful == "Disagree"] <- 2
+cugh_followup$fu_meaningful[cugh_followup$fu_meaningful == "Neutral"] <- 3
+cugh_followup$fu_meaningful[cugh_followup$fu_meaningful == "Strongly Agree"] <- 5
+cugh_followup$fu_intouch[cugh_followup$fu_intouch == "Agree"] <- 4
+cugh_followup$fu_intouch[cugh_followup$fu_intouch == "Disagree"] <- 2
+cugh_followup$fu_intouch[cugh_followup$fu_intouch == "Neutral"] <- 3
+cugh_followup$fu_intouch[cugh_followup$fu_intouch == "Strongly Agree"] <- 5
+cugh_followup$fu_intouch[cugh_followup$fu_intouch == "Strongly Disagree"] <- 1
+cugh_followup$fu_collab[cugh_followup$fu_collab == "Agree"] <- 4
+cugh_followup$fu_collab[cugh_followup$fu_collab == "Disagree"] <- 2
+cugh_followup$fu_collab[cugh_followup$fu_collab == "Neutral"] <- 3
+cugh_followup$fu_collab[cugh_followup$fu_collab == "Strongly Agree"] <- 5
+cugh_followup$fu_complete[cugh_followup$fu_complete == "Yes"] <- 1
+#cugh_followup$fu_complete[cugh_followup$fu_complete == "NA" ] <- 0
+
+
+
+cugh_c = cugh_followup[,-(8:10)] # only the likert
+cugh_c = cugh_c[,-1]
+cugh_cl = cugh_c
+cugh_c <- as.data.frame(sapply(cugh_c, as.numeric)) #<- sapply is here
+#cugh_c = data.matrix(cugh_c)
+
+cugh_d = cugh_followup[,(8:10)] # remaining
+cugh_dl = cugh_d
+cugh_d[] <- data.matrix(cugh_d)
+cugh_followup_l = cbind(cugh_c, cugh_d)
+cugh_followup = cbind(cugh_c, cugh_d)
+cugh_followup = data.frame(cugh_followup)
+
+# remove rows/participants that did not complete follow up. cugh_complete has only the responses of those who completed both the initial survey and follow up survey.
+cugh_complete = cbind(cugh_init, cugh_followup)
+cugh_complete_string = cugh[complete.cases(cugh$`Follow Up Complete?` == "Yes"), ]
+
+cugh_complete_w_na = cugh_complete
+
+cugh_complete = cugh_complete[complete.cases(cugh_followup$fu_complete == 1), ]
+cugh_complete = cugh_complete[,-22]
+
+#cugh_complete_l = cugh_complete[complete.cases(cugh_followup$fu_complete == 1), ]
+```
+
+```{r, echo = F, include = F}
+# likerts - initial
+#colnames(cugh_init) <- c("id", "attend", "followup", "origin", "organization", "studentstatus","program", "occupation", "strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization" ,"intouch", "collab", "plans", "virtconnect", "whysignup","slack")
+Likerts_init <- c("strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization" ,"intouch", "collab", "plans")
+#cugh data with just likert
+cugh_init[,Likerts_init] = lapply(cugh_init[,Likerts_init], as.numeric) #convert to numeric/unlist double
+cugh_init[,Likerts_init] = as.data.frame(cugh_init[,Likerts_init])
+
+#indexing with origin variable
+#cugh_init[ ,c(Likerts_init, "origin")]
+#cugh_init[, c("strengthennetwork", "origin")]
+b = cugh_init[,Likerts_init]
+cugh_init$qualityconnectscore<- apply(cugh_init[,Likerts_init], MARGIN = 1, mean)
+cugh_followup$qualityconnectscore <- apply(cugh_followup[Likerts_fu], MARGIN = 1, mean)
+#composite score, qualityconnect, is the mean across the 5 Likert-type items
+
+# MARGIN = 1 means to apply along each row; we can find average for each variable/Likert question by setting MARGIN = 2
+```
+
+```{r, echo = F}
+# export data
+
+#write.csv(cugh_init,"/Users/mchun/OneDrive/Desktop/CGH/cugh_init_num.csv", row.names = FALSE)
+#write.csv(cugh_followup,"/Users/mchun/OneDrive/Desktop/CGH/cugh_followup_num.csv", row.names = FALSE)
+#write.csv(cugh_complete, "/Users/mchun/OneDrive/Desktop/CGH/cugh_complete_num.csv", row.names = FALSE)
+#cugh_followup = cugh_followup[,-1]
+#cugh_master_num <- cbind(cugh_init, cugh_followup)
+#write.csv(cugh_master_num,"/Users/mchun/OneDrive/Desktop/CGH/cugh_master_num.csv", row.names = FALSE)
+
+```
+
+Overview of Data
+```{r, echo = F}
+kable(head(cugh_init))
+#write.csv(cugh_init, "/Users/mchun/OneDrive/Desktop/CGH/cugh_init.csv", row.names = FALSE)
+kable(head(cugh_followup))
+#write.csv(cugh_followup, "/Users/mchun/OneDrive/Desktop/CGH/cugh_followup.csv", row.names = FALSE)
+#write.csv(cugh_complete, "/Users/mchun/OneDrive/Desktop/CGH/cugh_complete.csv", row.names = FALSE)
+
+#write.csv(cugh_complete_string, "/Users/mchun/OneDrive/Desktop/CGH/cugh_complete_string.csv", row.names = FALSE)
+```
+
+# Correlation Matrix Plot: seeing changes across demographic variables of those who did followup
+```{r, echo = F, warnings = F}
+# program type and number of new virtual connections made as a result of this session (initial survey)
+library("plyr")
+library("dplyr")
+library("corrplot")
+library("ggcorrplot")
+
+
+
+#cormat_full <- cugh_complete %>%
+#select("program", "strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization", "intouch", "collab", "plans", "virtconnect", "fu_strengthennetwork", "fu_newconnect", "fu_meaningful", "fu_intouch", "fu_collab", "fu_virtconnect", "furtherconnect", "followupconnect") %>%
+#  cor(., use = "pairwise.complete.obs")
+#corrplot(cormat_full, # correlation matrix
+#         order = "hclust", # hierarchical clustering of correlations
+#         addrect = 2) # number of rectangles to draw around clusters
+# Correlation matrix plot, overall
+#ggcorrplot(cormat_full, sig.level=0.05, lab_size = 3, p.mat = NULL, 
+#           insig = c("pch", "blank"), pch = 0.5, pch.col = "black", pch.cex =0.3,
+#           tl.cex = 10, # correlation matrix
+#           type = "lower", # print the lower part of the correlation matrix
+#           hc.order = TRUE, # hierarchical clustering of correlations
+#           lab = TRUE) # add correlation values as labels
+```
+
+# Stacked Barplot
+```{r, echo = F, warnings = F}
+# Stacked barplot
+library("likert")
+# Select only the first 8 items in the survey
+items <- cugh_init[, Likerts_init]
+names(items) <- c(
+  strengthennetwork="The event strengthened my network",
+  newconnect="I made new connections at this event",
+  meaningful="The connections that I made were meaningful",
+  newcountry ="I met someone new from a different country at this event",
+  neworganization="I met someone new from a different organization at this event",
+  newfromorganization="I met someone new from my own organization at this event",
+  intouch="I will keep in touch with the new people I met",
+  collab="I would like to collaborate in some way with someone I met at this event at some point in the future",
+  plans = "I already have plans to collaborate with someone I met at this event")
+
+Likerts_fu
+items_fu <- cugh_followup[, Likerts_fu]
+names(items_fu) <- c(
+  fu_strengthennetwork = "The event strengthened my network",
+  fu_newconnect = "I made new connections at this event",
+  fu_meaningful = "The connections that I made were meaningful",
+  fu_intouch = "I will keep in touch with the new people I met",
+  fu_collab = "I would like to collaborate in some way with someone I met at this event at some point in the future"
+)
+
+# A custom function to recode numerical responses into ordered factors: doesn't work because each variable has different levels!
+# 5 conditions, 4 ifelse statements
+likert_recode <- function(x) {
+  y <- ifelse(is.na(x), NA,
+              ifelse(x == 1, "Strongly Disagree",
+                     ifelse(x == 2, "Disagree",
+                            ifelse(x == 3, "Neutral",
+                                   ifelse(x == 4, "Agree", "Strongly Agree")))))
+  
+  y <- factor(y, levels = c("Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"))
+  
+  return(y)
+}
+
+items_likert <- items %>%
+  mutate_all(likert_recode) %>%
+  likert()
+
+items_likert_fu <- items_fu %>%
+  mutate_all(likert_recode) %>%
+  likert()
+
+#library(ggrepel)
+#par(mar = c(4,4,4,4))
+# Create a stacked bar chart
+plot(items_likert_fu, text.size = 3,
+     # Group the items alphabetically
+     # Plot the percentages for each response category
+     plot.percents = T,
+     # Plot the total percentage for negative responses
+     plot.percent.low = T,
+     # Plot the total percentage for positive responses
+     plot.percent.high = T,
+     # Whether response categories should be centered
+     # This is only helpful when there is a middle response
+     # option such as "neutral" or "neither agree nor disagree"
+     centered = T,
+     # Wrap label text for item labels
+     wrap=23) +
+ theme(legend.position = "right",
+        legend.title = element_text("Responses", size = 7),
+        axis.text.x = element_text(size=5),
+       axis.text.y = element_text(size = 8),
+        axis.title = element_text(size=7), 
+        legend.text = element_text(size=7))
+
+
+#par(mar = c(4,4,4,4))
+# Create a stacked bar chart
+plot(items_likert, main = "Likert Scale Responses", text.size = 3,
+     # Group the items alphabetically
+     # Plot the percentages for each response category
+     plot.percents = T,
+     # Plot the total percentage for negative responses
+     plot.percent.low = T,
+     # Plot the total percentage for positive responses
+     plot.percent.high = T,
+     # Whether response categories should be centered
+     # This is only helpful when there is a middle response
+     # option such as "neutral" or "neither agree nor disagree"
+     centered = T,
+     main = "Likert Scale Responses for Initial Survey",
+     # Wrap label text for item labels
+    wrap=23) +
+ theme(legend.position = "right",
+       plot.title = (element_text("Likert Scale Responses for Initial Survey", size = 10)),
+        legend.title = element_text("Responses", size = 7),
+        axis.text.x = element_text(size=5),
+       axis.text.y = element_text(size = 8),
+        axis.title = element_text(size=7), 
+        legend.text = element_text(size=7))
+```
+
+
+# Alluvial plots: change over time
+```{r, echo = F}
+# Activate reshape2 and ggalluvial
+library("reshape2")
+library("ggalluvial")
+
+
+## my attempt - have to use with original categorical answers
+# what is my final end variable? # of connections?
+
+cugh1 = as.data.frame(cugh)
+colnames(cugh1) = c("id", "attend", "followup", "origin", "organization", "studentstatus","program", "occupation", "strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization" ,"intouch", "collab", "plans", "virtconnect", "whysignup","slack", "fu_complete", "fu_strengthennetwork", "fu_newconnect", "fu_meaningful", "fu_intouch", "fu_collab", "fu_virtconnect", "furtherconnect", "followupconnect")
+cugh1$fu_complete[is.na(cugh1$fu_complete)] = "No"
+
+cugh1a_table = cugh1 %>%
+  select(studentstatus, meaningful, virtconnect, program) %>%
+  group_by(studentstatus, meaningful, virtconnect, program) %>%
+  count()
+head(cugh1a_table)
+
+
+
+# only do alluvial (over time) plots for Follow Up participants
+# change across "time", from initial to follow-up
+# need frequency or counts of responses
+cugh_complete1 = cugh_complete_string
+colnames(cugh_complete1) = c("id", "attend", "followup", "origin", "organization", "studentstatus","program", "occupation", "strengthennetwork", "newconnect", "meaningful", "newcountry", "neworganization", "newfromorganization" ,"intouch", "collab", "plans", "virtconnect", "whysignup","slack", "fu_complete", "fu_strengthennetwork", "fu_newconnect", "fu_meaningful", "fu_intouch", "fu_collab", "fu_virtconnect", "furtherconnect", "followupconnect")
+
+
+
+```
+
+```{r, echo = F, include = F}
+# by all participants - new connections
+library(ggfittext)
+cugh1c_table = cugh_complete1 %>%
+  select(newconnect, fu_newconnect, attend) %>%
+  group_by(newconnect, fu_newconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$attend = as.factor(cugh1c_table$attend)
+
+ggplot(cugh1c_table,
+       aes(axis1 = newconnect,
+           axis2 = fu_newconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = attend)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: I made new connections at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+cugh_meaningful <- read_csv("cugh_meaningful.csv")
+cugh_meaningful = as.data.frame(cugh_meaningful)
+
+# meaningful
+mx <- melt(cugh_meaningful, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("meaningful", "fu_meaningful"))
+mx$Category = factor(mx$Category, levels=c("Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"))
+
+cugh1c_table = cugh_complete1 %>%
+  select(meaningful, fu_meaningful, id) %>%
+  group_by(meaningful, fu_meaningful) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$meaningful = as.factor(cugh1c_table$meaningful)
+
+ggplot(cugh1c_table,
+       aes(axis1 = meaningful,
+           axis2 = fu_meaningful,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() + 
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: The connections I made were meaningful",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Count") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank())
+
+
+
+# strengthen network
+
+cugh1c_table = cugh_complete1 %>%
+  select(strengthennetwork, fu_strengthennetwork, id) %>%
+  group_by(strengthennetwork, fu_strengthennetwork) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+ggplot(cugh1c_table,
+       aes(axis1 = strengthennetwork,
+           axis2 = fu_strengthennetwork,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                  expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: This event strengthened my network",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+
+# keep in touch
+cugh1c_table = cugh_complete1 %>%
+  select(intouch, fu_intouch, id) %>%
+  group_by(intouch, fu_intouch) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+ggplot(cugh1c_table,
+       aes(axis1 = intouch,
+           axis2 = fu_intouch,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: I will keep in touch with the new people I met",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# I would like to collaborate 
+cugh1c_table = cugh_complete1 %>%
+  select(collab, fu_collab, id) %>%
+  group_by(collab, fu_collab) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+ggplot(cugh1c_table,
+       aes(axis1 = collab,
+           axis2 = fu_collab,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+ labs(title = "Change in Response Data: I would like to collaborate in some way with someone I met at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour =  "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# virtconnect
+cugh1c_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, id) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+ggplot(cugh1c_table,
+       aes(axis1 = virtconnect,
+           axis2 = fu_virtconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: How many new virtual connections did you make as a result of this session?",
+       subtitle = "stratified by initial response and follow-up response",
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  ))
+```
+
+# by origin, by program, my Non-US/US
+```{r, echo = F, include= F}
+# by origin
+cugh1b_table = cugh_complete1 %>%
+  select(meaningful, fu_meaningful, origin) %>%
+  group_by(meaningful, fu_meaningful) %>%
+  count()
+head(cugh1b_table)
+cugh1b_table$origin[cugh1b_table$origin != "United States"] = "Non-US"
+head(cugh1b_table)
+ggplot(cugh1b_table,
+       aes(axis1 = meaningful,
+           axis2 = fu_meaningful,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: The connections I made were meaningful",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# newconnect: program
+cugh1c_table = cugh_complete1 %>%
+  select(newconnect, fu_newconnect, program) %>%
+  group_by(newconnect, fu_newconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$program = as.factor(cugh1c_table$program)
+ggplot(cugh1c_table,
+       aes(axis1 = newconnect,
+           axis2 = fu_newconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = program)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Program Type")) +
+  labs(title = "Change in Response Data: I made new connections at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+#By stratified US/non US?
+cugh1c_table = cugh_complete1 %>%
+  select(newconnect, fu_newconnect, origin) %>%
+  group_by(newconnect, fu_newconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$origin[cugh1c_table$origin != "United States"] = "Non-US"
+head(cugh1c_table)
+ggplot(cugh1c_table,
+       aes(axis1 = newconnect,
+           axis2 = fu_newconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: I made new connections at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# strengthen network: program
+cugh1d_table = cugh_complete1 %>%
+  select(strengthennetwork, fu_strengthennetwork, program) %>%
+  group_by(strengthennetwork, fu_strengthennetwork) %>%
+  count()
+head(cugh1d_table)
+cugh1b_table$program = as.factor(cugh1d_table$program)
+ggplot(cugh1d_table,
+       aes(axis1 = strengthennetwork,
+           axis2 = fu_strengthennetwork,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = program)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Program Type")) +
+  labs(title = "Change in Response Data: The event strengthened my network ",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    plot.subtitle = element_text(size = 7),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+cugh1d_table = cugh_complete1 %>%
+  select(strengthennetwork, fu_strengthennetwork, origin) %>%
+  group_by(strengthennetwork, fu_strengthennetwork) %>%
+  count()
+cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = strengthennetwork,
+           axis2 = fu_strengthennetwork,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: The event strengthened my network ",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# in touch - program
+cugh1d_table = cugh_complete1 %>%
+  select(intouch, fu_intouch, program) %>%
+  group_by(intouch, fu_intouch) %>%
+  count()
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = intouch,
+           axis2 = fu_intouch,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = program)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Program Type")) +
+  labs(title = "Change in Response Data: I will keep in touch with the new people I met",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# in touch - origin
+cugh1d_table = cugh_complete1 %>%
+  select(intouch, fu_intouch, origin) %>%
+  group_by(intouch, fu_intouch) %>%
+  count()
+#cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = intouch,
+           axis2 = fu_intouch,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: I will keep in touch with the new people I met",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+cugh1d_table = cugh_complete1 %>%
+  select(intouch, fu_intouch, origin) %>%
+  group_by(intouch, fu_intouch) %>%
+  count()
+cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = intouch,
+           axis2 = fu_intouch,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: I will keep in touch with the new people I met",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+
+cugh1d_table = cugh_complete1 %>%
+  select(intouch, fu_intouch, program) %>%
+  group_by(intouch, fu_intouch) %>%
+  count()
+#cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = intouch,
+           axis2 = fu_intouch,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = program)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: I will keep in touch with the new people I met",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+
+
+# collab - program
+cugh1d_table = cugh_complete1 %>%
+  select(collab, fu_collab, program) %>%
+  group_by(collab, fu_collab) %>%
+  count()
+#cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = collab,
+           axis2 = fu_collab,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = program)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Program Type")) +
+  labs(title = "Change in Response Data: I would like to collaborate in some way with\n someone I met at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# collab - origin
+cugh1d_table = cugh_complete1 %>%
+  select(collab, fu_collab, origin) %>%
+  group_by(collab, fu_collab) %>%
+  count()
+#cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = collab,
+           axis2 = fu_collab,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: I would like to collaborate in some way with\n someone I met at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# collab - origin
+cugh1d_table = cugh_complete1 %>%
+  select(collab, fu_collab, origin) %>%
+  group_by(collab, fu_collab) %>%
+  count()
+cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = collab,
+           axis2 = fu_collab,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: I would like to collaborate in some way with\n someone I met at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# virtual connections (program)
+cugh1d_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, program) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+#cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = virtconnect,
+           axis2 = fu_virtconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = program)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Program Type")) +
+  labs(title = "Change in Response Data: How many new virtual connections did you make \n as a result of this session?",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# virtual connections (origin)
+cugh1d_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, origin) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+#cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = virtconnect,
+           axis2 = fu_virtconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: How many new virtual connections did you make \n as a result of this session?",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+# virtual connections (origin)
+cugh1d_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, origin) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+cugh1d_table$origin[cugh1d_table$origin != "United States"] = "Non-US"
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = virtconnect,
+           axis2 = fu_virtconnect,
+           y = freq,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = origin)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Origin")) +
+  labs(title = "Change in Response Data: How many new virtual connections did you make \n as a result of this session?",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+## Barplot Plots
+
+```{r, echo = F}
+#cugh_complete1 = items
+cugh_complete_a = cugh_complete1 %>%
+  select(newconnect, fu_newconnect)
+## Now apply to CUGH data (test with newconnect)
+library(ggplot2)
+library(reshape2)
+library(readr)
+cugh_test <- read_csv("cugh_test.csv")
+cugh_test = as.data.frame(cugh_test)
+
+mx <- melt(cugh_test, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("new connect", "fu_newconnect"))
+ggplot(mx, aes(x = Group, y = Count, fill = Category), group.order=names(mx$Group)) + geom_bar(stat="identity")
+theme(legend.title = element_text( size=5), legend.text=element_text(size=5))
+
+
+cugh_meaningful <- read_csv("cugh_meaningful.csv")
+cugh_meaningful = as.data.frame(cugh_meaningful)
+mx <- melt(cugh_meaningful, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+ggplot(mx, aes(x=Group, y=Count, fill=Category)) +
+geom_bar(stat="identity")
+
+cugh1d_table = cugh_complete1 %>%
+  select(meaningful, fu_meaningful, id) %>%
+  group_by(meaningful, fu_meaningful) %>%
+  count()
+head(cugh1d_table)
+ggplot(cugh1d_table,
+       aes(axis1 = meaningful,
+           axis2 = fu_meaningful,
+           y = id,
+           label = after_stat(stratum),
+           axis.strata = F)) +
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+                   expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  labs(title = "Change in Response Data: ?",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+   theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = "right",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+
+cugh_meaningful <- read_csv("cugh_meaningful.csv")
+cugh_meaningful = as.data.frame(cugh_meaningful)
+
+mx <- melt(cugh_meaningful, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("meaningful", "fu_meaningful"))
+ggplot(mx, aes(x = Group, y = Count, fill = Category), group.order=names(mx$Group)) + geom_bar(stat="identity")
+theme(legend.title = element_text( size=5), legend.text=element_text(size=5))
+
+cugh_strengthen <- as.data.frame(read_csv("cugh_strengthennetwork.csv"))
+mx <- melt(cugh_strengthen, id.vars=1)
+names(mx) <- c("Group","Category","Percent")
+ggplot(mx, aes(x=Group, y=Percent, fill=Category)) +
+geom_bar(stat="identity")
+
+mx <- melt(cugh_strengthen, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("strengthennetwork", "fu_strengthennetwork"))
+ggplot(mx, aes(x = Group, y = Count, fill = Category), group.order=names(mx$Group)) + geom_bar(stat="identity")+
+theme(legend.title = element_text( size=5), legend.text=element_text(size=5))
+
+cugh_intouch <- as.data.frame(read_csv("cugh_intouch.csv"))
+mx <- melt(cugh_intouch, id.vars=1)
+names(mx) <- c("Group","Category","Percent")
+#ggplot(mx, aes(x=Group, y=Percent, fill=Category)) +
+#geom_bar(stat="identity")
+mx <- melt(cugh_intouch, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("intouch", "fu_intouch"))
+ggplot(mx, aes(x = Group, y = Count, fill = Category), group.order=names(mx$Group)) + geom_bar(stat="identity")+
+theme(legend.title = element_text( size=5), legend.text=element_text(size=5))
+
+
+cugh_collab <- as.data.frame(read_csv("cugh_collab.csv"))
+mx <- melt(cugh_collab, id.vars=1)
+names(mx) <- c("Group","Category","Percent")
+ggplot(mx, aes(x=Group, y=Percent, fill=Category)) +
+geom_bar(stat="identity")
+
+mx <- melt(cugh_collab, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("collab", "fu_collab"))
+ggplot(mx, aes(x = Group, y = Count, fill = Category), group.order=names(mx$Group)) + geom_bar(stat="identity")+
+theme(legend.title = element_text( size=5), legend.text=element_text(size=5))
+
+
+cugh_virtconnect <- as.data.frame(read_csv("cugh_virtconnect.csv"))
+mx <- melt(cugh_virtconnect, id.vars=1)
+names(mx) <- c("Group","Category","Percent")
+ggplot(mx, aes(x=Group, y=Percent, fill=Category)) +
+geom_bar(stat="identity")
+
+mx <- melt(cugh_virtconnect, id.vars=1)
+names(mx) <- c("Group","Category","Count")
+mx$Group = factor(mx$Group, levels=c("virtconnect", "fu_virtconnect"))
+ggplot(mx, aes(x = Group, y = Count, fill = Category), group.order=names(mx$Group)) + geom_bar(stat="identity")+
+theme(legend.title = element_text( size=5), legend.text=element_text(size=5))
+
+```
+
+
+```{r}
+
+kable(table(cugh_complete_string$`What is your current occupation?`))
+kable(table(cugh_complete_string$`Which country are you from?`))
+kable(table(cugh_complete_string$`What is your current institution or organization?`))
+kable(table(cugh_complete_string$`If you are a student, what degree program are you in?`))
+kable(table(cugh_complete_string$`Are you currently a student (i.e. actively enrolled in an academic program)?`))
+
+```
+
+## new plots 1/4/22
+```{r}
+# meaningful
+library(ggfittext)
+cugh1c_table = cugh_complete1 %>%
+  select(meaningful, fu_meaningful, id) %>%
+  group_by(meaningful, fu_meaningful) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$meaningful = factor(cugh1c_table$meaningful, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disgree"))
+cugh1c_table$fu_meaningful = factor(cugh1c_table$fu_meaningful, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+ggplot(cugh1c_table,
+aes(axis1 = meaningful,
+axis2 = fu_meaningful,
+y = freq,
+label = after_stat(stratum),
+axis.strata = F))  +
+geom_alluvium(aes(fill = id)) +
+geom_stratum() +
+geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+expand = c(.1, .1)) +
+scale_fill_viridis_d() +
+guides(fill = guide_legend(title = "Attended the session")) +
+labs(title = "Change in Response Data: The connections I made were meaningful",
+subtitle = "stratified by initial response and follow-up response",
+y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+plot.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8),
+legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+legend.justification = c(0, 1),
+legend.position = "none",
+axis.ticks = element_line(colour = "grey70", size = 0.2),
+panel.grid.major = element_line(colour = "grey70", size = 0.2),
+panel.grid.minor = element_blank())
+
+## strengthen network
+library(ggfittext)
+cugh1c_table = cugh_complete1 %>%
+  select(strengthennetwork, fu_strengthennetwork, id) %>%
+  group_by(strengthennetwork, fu_strengthennetwork) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$strengthennetwork = factor(cugh1c_table$strengthennetwork, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disgree"))
+cugh1c_table$fu_strengthennetwork = factor(cugh1c_table$fu_strengthennetwork, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+ggplot(cugh1c_table,
+aes(axis1 = strengthennetwork,
+axis2 = fu_strengthennetwork,
+y = freq,
+label = after_stat(stratum),
+axis.strata = F))  +
+geom_alluvium(aes(fill = id)) +
+geom_stratum() +
+geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+expand = c(.1, .1)) +
+scale_fill_viridis_d() +
+guides(fill = guide_legend(title = "Attended the session")) +
+labs(title = "Change in Response Data: The event strengthened my network",
+subtitle = "stratified by initial response and follow-up response",
+y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+plot.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8),
+legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+legend.justification = c(0, 1),
+legend.position = "none",
+axis.ticks = element_line(colour = "grey70", size = 0.2),
+panel.grid.major = element_line(colour = "grey70", size = 0.2),
+panel.grid.minor = element_blank())
+
+### new connect
+cugh_newconnect <- read_csv("cugh_newconnect.csv")
+cugh_newconnect = as.data.frame(cugh_newconnect)
+cugh1c_table = cugh_complete1 %>%
+  select(newconnect, fu_newconnect, id) %>%
+  group_by(newconnect, fu_newconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$newconnect = factor(cugh1c_table$newconnect, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+cugh1c_table$fu_newconnect = factor(cugh1c_table$fu_newconnect, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+ggplot(cugh1c_table,
+       aes(y = freq,
+           axis1 = newconnect,
+           axis2 = fu_newconnect))+
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"), expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: I made new connections at this event",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Frequency") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+plot.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8),
+legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+legend.justification = c(0, 1),
+legend.position = "none",
+axis.ticks = element_line(colour = "grey70", size = 0.2),
+panel.grid.major = element_line(colour = "grey70", size = 0.2),
+panel.grid.minor = element_blank())
+
+
+## intouch 
+cugh_intouch <- read_csv("cugh_intouch.csv")
+cugh_intouch = as.data.frame(cugh_intouch)
+cugh1c_table = cugh_complete1 %>%
+  select(intouch, fu_intouch, id) %>%
+  group_by(intouch, fu_intouch) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$intouch = factor(cugh1c_table$intouch, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+cugh1c_table$fu_intouch = factor(cugh1c_table$fu_intouch, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+ggplot(cugh1c_table,
+       aes(y = freq,
+           axis1 = intouch,
+           axis2 = fu_intouch))+
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"), expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: I will keep in touch with the new people I met",
+       subtitle = "stratified by initial response and follow-up response",
+       y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+plot.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8),
+legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+legend.justification = c(0, 1),
+legend.position = "none",
+axis.ticks = element_line(colour = "grey70", size = 0.2),
+panel.grid.major = element_line(colour = "grey70", size = 0.2),
+panel.grid.minor = element_blank())
+
+## collaborate
+cugh_collab <- read_csv("cugh_collab.csv")
+cugh_collab = as.data.frame(cugh_collab)
+cugh1c_table = cugh_complete1 %>%
+  select(collab, fu_collab, id) %>%
+  group_by(collab, fu_collab) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$collab = factor(cugh1c_table$collab, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+cugh1c_table$fu_collab = factor(cugh1c_table$fu_collab, levels=c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+ggplot(cugh1c_table,
+       aes(y = freq,
+           axis1 = collab,
+           axis2 = fu_collab))+
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"), expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: I would like to collaborate in some way with someone I met at this event
+", subtitle = "stratified by initial response and follow-up response",
+       y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+plot.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8),
+legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+legend.justification = c(0, 1),
+legend.position = "none",
+axis.ticks = element_line(colour = "grey70", size = 0.2),
+panel.grid.major = element_line(colour = "grey70", size = 0.2),
+panel.grid.minor = element_blank())
+
+
+
+cugh1c_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, id) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+
+ggplot(cugh1c_table,
+       aes(y = freq,
+           axis1 = virtconnect,
+           axis2 = fu_virtconnect))+
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"), expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: How many new virtual connections did you \n make as a result of this session?", subtitle = "stratified by initial response and follow-up response",
+       y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+## virtconnect
+cugh1c_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, id) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$virtconnect = factor(cugh1c_table$virtconnect, levels=c("0", "1 to 3", "4 to 6", "7 to 9", "10 or more"))
+cugh1c_table$fu_virtconnect = factor(cugh1c_table$fu_virtconnect, levels=c("0", "1 to 3", "4 to 6", "7 to 9", "10 or more"))
+ggplot(cugh1c_table,
+       aes(y = freq,
+           axis1 = virtconnect,
+           axis2 = fu_virtconnect))+
+  geom_alluvium(aes(fill = id)) +
+  geom_stratum() +
+  geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+  scale_x_discrete(limits = c("Initial Score", "Follow Up Score"), expand = c(.1, .1)) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Attended the session")) +
+  labs(title = "Change in Response Data: How many new virtual connections did you \n make as a result of this session?", subtitle = "stratified by initial response and follow-up response",
+       y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+    plot.title = element_text(face = "bold", size = 10),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+   legend.position = "none",
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  )
+
+library(ggfittext)
+cugh1c_table = cugh_complete1 %>%
+  select(virtconnect, fu_virtconnect, id) %>%
+  group_by(virtconnect, fu_virtconnect) %>%
+  count()
+head(cugh1c_table)
+cugh1c_table$id = as.factor(cugh1c_table$id)
+cugh1c_table$virtconnect = factor(cugh1c_table$virtconnect, levels=c("0", "1 to 3", "4 to 6", "7 to 9", "10 or more"))
+cugh1c_table$fu_virtconnect = factor(cugh1c_table$fu_virtconnect, levels=c("0", "1 to 3", "4 to 6", "7 to 9", "10 or more"))
+ggplot(cugh1c_table,
+aes(axis1 = virtconnect,
+axis2 = fu_virtconnect,
+y = freq,
+label = after_stat(stratum),
+axis.strata = F))  +
+geom_alluvium(aes(fill = id)) +
+geom_stratum() +
+geom_fit_text(stat = "stratum", aes(label = after_stat(stratum)), width = 1/3, min.size = 0.5) +
+scale_x_discrete(limits = c("Initial Score", "Follow Up Score"),
+expand = c(.1, .1)) +
+scale_fill_viridis_d() +
+guides(fill = guide_legend(title = "Attended the session")) +
+labs(title = "Change in Response Data: How many new virtual connections did you make \n as a result of this session?",
+subtitle = "stratified by initial response and follow-up response",
+y = "Count") +
+theme(axis.text.x = element_text(size = 8, face = "plain"),axis.text.y = element_text(size = 8, face = "plain"), axis.title.y = element_text(size = 8, face = "plain"),
+plot.title = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8),
+legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+legend.justification = c(0, 1),
+legend.position = "none",
+axis.ticks = element_line(colour = "grey70", size = 0.2),
+panel.grid.major = element_line(colour = "grey70", size = 0.2),
+panel.grid.minor = element_blank())
+```

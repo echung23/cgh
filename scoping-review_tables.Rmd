@@ -1,0 +1,52 @@
+---
+title: "Scoping Review"
+author: "Michelle Chung"
+date: "3/30/2022"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(kableExtra)
+library(flextable)
+library(dplyr)
+library(tidyr)
+#greylit = read_csv("Final Extraction_Cleaned - grey lit and capstone extractions.csv")
+
+```
+
+```{r, results='asis'}
+analysis = read_csv("C:/Users/mchun/OneDrive/Desktop/CGH/AnalysisCopy _Final Extraction_Cleaned - grey lit and capstone extractions.csv")
+
+
+#for (i in colnames(analysis)){
+#    ft <- separate_rows(analysis[i], sep=",\\s*") %>% 
+#                     group_by(analysis[i]) %>% tally ()
+#    print(flextable(ft))
+#}
+
+#for (i in colnames(analysis)){
+#    ft <- separate_rows(analysis[i], sep=",\\s*") %>% 
+#                     group_by(analysis[i]) %>% tally ()
+#    ft=flextable(ft)
+#    flextable_to_rmd(ft) #solution to why the tables weren't printing properly, with results='asis'!
+#    cat("\n")
+#}
+
+
+for (i in colnames(analysis)){
+    ft <- separate_rows(analysis[i], sep=",\\s*") %>% 
+                     group_by(analysis[i]) %>% tally () %>%
+  mutate(freq = round(n / 31, 5))
+    ft=flextable(ft)
+#      prop.table(ft)
+    flextable_to_rmd(ft) #solution to why the tables weren't printing properly, with results='asis'!
+    cat("\n")
+}
+```
+
